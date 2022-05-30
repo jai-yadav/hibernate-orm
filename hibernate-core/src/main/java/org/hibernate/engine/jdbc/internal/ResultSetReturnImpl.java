@@ -56,7 +56,7 @@ public class ResultSetReturnImpl implements ResultSetReturn {
 		// IMPL NOTE : SQL logged by caller
 		long executeStart = 0;
 		if ( this.sqlStatementLogger.getLogSlowQuery() > 0 ) {
-			executeStart = System.currentTimeMillis();
+			executeStart = System.nanoTime();
 		}
 		try {
 			final ResultSet rs;
@@ -89,7 +89,7 @@ public class ResultSetReturnImpl implements ResultSetReturn {
 		// IMPL NOTE : SQL logged by caller
 		long executeStart = 0;
 		if ( this.sqlStatementLogger.getLogSlowQuery() > 0 ) {
-			executeStart = System.currentTimeMillis();
+			executeStart = System.nanoTime();
 		}
 		try {
 			final ResultSet rs;
@@ -114,7 +114,7 @@ public class ResultSetReturnImpl implements ResultSetReturn {
 		sqlStatementLogger.logStatement( sql );
 		long executeStart = 0;
 		if ( this.sqlStatementLogger.getLogSlowQuery() > 0 ) {
-			executeStart = System.currentTimeMillis();
+			executeStart = System.nanoTime();
 		}
 		try {
 			final ResultSet rs;
@@ -139,7 +139,7 @@ public class ResultSetReturnImpl implements ResultSetReturn {
 		// sql logged by StatementPreparerImpl
 		long executeStart = 0;
 		if ( this.sqlStatementLogger.getLogSlowQuery() > 0 ) {
-			executeStart = System.currentTimeMillis();
+			executeStart = System.nanoTime();
 		}
 		try {
 			final ResultSet rs;
@@ -169,7 +169,7 @@ public class ResultSetReturnImpl implements ResultSetReturn {
 		sqlStatementLogger.logStatement( sql );
 		long executeStart = 0;
 		if ( this.sqlStatementLogger.getLogSlowQuery() > 0 ) {
-			executeStart = System.currentTimeMillis();
+			executeStart = System.nanoTime();
 		}
 		try {
 			final ResultSet rs;
@@ -198,7 +198,7 @@ public class ResultSetReturnImpl implements ResultSetReturn {
 	public int executeUpdate(PreparedStatement statement) {
 		long executeStart = 0;
 		if ( this.sqlStatementLogger.getLogSlowQuery() > 0 ) {
-			executeStart = System.currentTimeMillis();
+			executeStart = System.nanoTime();
 		}
 		try {
 			jdbcExecuteStatementStart();
@@ -218,7 +218,7 @@ public class ResultSetReturnImpl implements ResultSetReturn {
 		sqlStatementLogger.logStatement( sql );
 		long executeStart = 0;
 		if ( this.sqlStatementLogger.getLogSlowQuery() > 0 ) {
-			executeStart = System.currentTimeMillis();
+			executeStart = System.nanoTime();
 		}
 		try {
 			jdbcExecuteStatementStart();
