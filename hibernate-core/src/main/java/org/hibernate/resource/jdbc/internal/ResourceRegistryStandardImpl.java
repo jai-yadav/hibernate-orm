@@ -36,7 +36,7 @@ public class ResourceRegistryStandardImpl implements ResourceRegistry {
 
 	private final JdbcObserver jdbcObserver;
 
-	private final Map<Statement, Set<ResultSet>> xref = new HashMap<Statement, Set<ResultSet>>();
+	private final Map<Statement, StatementRegistryEntry> xref = new HashMap<>();
 	private final Set<ResultSet> unassociatedResultSets = new HashSet<ResultSet>();
 
 	private List<Blob> blobs;
@@ -67,7 +67,7 @@ public class ResourceRegistryStandardImpl implements ResourceRegistry {
 	public void register(Statement statement, boolean cancelable) {
 		log.tracef( "Registering statement [%s]", statement );
 
-		Set<ResultSet> previousValue = xref.putIfAbsent( statement, Collections.EMPTY_SET );
+		StatementRegistryEntry previousValue = xref.putIfAbsent( statement, new StatementRegistryEntry( Collections.EMPTY_SET ));
 		if ( previousValue != null ) {
 			throw new HibernateException( "JDBC Statement already registered" );
 		}
@@ -87,9 +87,9 @@ public class ResourceRegistryStandardImpl implements ResourceRegistry {
 			log.unregisteredStatement();
 		}
 		else {
-			final Set<ResultSet> resultSets = xref.get( statement );
-			if ( resultSets != null ) {
-				closeAll( resultSets );
+			final StatementRegistryEntry statementRegistryEntry = xref.get( statement );
+			if ( statementRegistryEntry != null && statementRegistryEntry.resultSets != null ) {
+				closeAll( statementRegistryEntry.resultSets );
 			}
 			xref.remove( statement );
 		}
@@ -113,13 +113,13 @@ public class ResourceRegistryStandardImpl implements ResourceRegistry {
 			}
 		}
 		if ( statement != null ) {
-			final Set<ResultSet> resultSets = xref.get( statement );
-			if ( resultSets == null ) {
+			final StatementRegistryEntry statementRegistryEntry = xref.get( statement );
+			if (  statementRegistryEntry == null || statementRegistryEntry.resultSets == null ) {
 				log.unregisteredStatement();
 			}
 			else {
-				resultSets.remove( resultSet );
-				if ( resultSets.isEmpty() ) {
+				statementRegistryEntry.resultSets.remove( resultSet );
+				if (  statementRegistryEntry == null || statementRegistryEntry.resultSets.isEmpty() ) {
 					xref.remove( statement );
 				}
 			}
@@ -204,17 +204,19 @@ public class ResourceRegistryStandardImpl implements ResourceRegistry {
 			}
 		}
 		if ( statement != null ) {
-			Set<ResultSet> resultSets = xref.get( statement );
+			final StatementRegistryEntry statementRegistryEntry = xref.get( statement );
+			Set<ResultSet> resultSets = statementRegistryEntry != null ?
+					statementRegistryEntry.resultSets : null;
 
 			// Keep this at DEBUG level, rather than warn.  Numerous connection pool implementations can return a
 			// proxy/wrapper around the JDBC Statement, causing excessive logging here.  See HHH-8210.
-			if ( log.isDebugEnabled() && resultSets == null ) {
+			if ( log.isDebugEnabled() && statementRegistryEntry != null && statementRegistryEntry.resultSets == null ) {
 				log.debug( "ResultSet statement was not registered (on register)" );
 			}
 
 			if ( resultSets == null || resultSets == Collections.EMPTY_SET ) {
 				resultSets = new HashSet<ResultSet>();
-				xref.put( statement, resultSets );
+				xref.put( statement, new StatementRegistryEntry( resultSets ));
 			}
 			resultSets.add( resultSet );
 		}
@@ -305,9 +307,9 @@ public class ResourceRegistryStandardImpl implements ResourceRegistry {
 			jdbcObserver.jdbcReleaseRegistryResourcesStart();
 		}
 
-		for ( Map.Entry<Statement, Set<ResultSet>> entry : xref.entrySet() ) {
-			if ( entry.getValue() != null ) {
-				closeAll( entry.getValue() );
+		for ( Map.Entry<Statement, StatementRegistryEntry> entry : xref.entrySet() ) {
+			if ( entry.getValue() != null && entry.getValue().resultSets != null) {
+				closeAll( entry.getValue().resultSets );
 			}
 			close( entry.getKey() );
 		}
@@ -362,5 +364,40 @@ public class ResourceRegistryStandardImpl implements ResourceRegistry {
 
 	private boolean hasRegistered(Collection resource) {
 		return resource != null && !resource.isEmpty();
+	}
+
+	@Override
+	public void setStatementSql(Statement statement, String sql) {
+		StatementRegistryEntry statementRegistryEntry = xref.get( statement );
+		if ( statementRegistryEntry != null ) {
+			statementRegistryEntry.sql = sql;
+		}
+	}
+
+	@Override
+	public String getStatementSql(Statement statement) {
+		StatementRegistryEntry statementRegistryEntry = xref.get( statement );
+		return statementRegistryEntry != null ? statementRegistryEntry.sql : null;
+	}
+
+	/**
+	 * This class encapsulate the Statement-related info that's being kept in the
+	 * registry for a given Statement.
+	 */
+	private static class StatementRegistryEntry {
+		private String sql;
+		private final Set<ResultSet> resultSets;
+
+		StatementRegistryEntry(Set<ResultSet> resultSets) {
+			this.resultSets = resultSets;
+		}
+
+		public String getSql() {
+			return sql;
+		}
+
+		public void setSql(String sql) {
+			this.sql = sql;
+		}
 	}
 }

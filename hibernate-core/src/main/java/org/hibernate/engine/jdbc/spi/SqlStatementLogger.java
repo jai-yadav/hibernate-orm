@@ -6,6 +6,10 @@
  */
 package org.hibernate.engine.jdbc.spi;
 
+import java.sql.Statement;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+
 import org.hibernate.engine.jdbc.internal.FormatStyle;
 import org.hibernate.engine.jdbc.internal.Formatter;
 import org.hibernate.internal.CoreLogging;
@@ -20,9 +24,14 @@ import org.jboss.logging.Logger;
  */
 public class SqlStatementLogger {
 	private static final Logger LOG = CoreLogging.logger( "org.hibernate.SQL" );
+	private static final Logger LOG_SLOW = CoreLogging.logger( "org.hibernate.SQL_SLOW" );
 
 	private boolean logToStdout;
 	private boolean format;
+	/**
+	 * Configuration value that indicates slow query. (In milliseconds) 0 - disabled.
+	 */
+	private final long logSlowQuery;
 
 	/**
 	 * Constructs a new SqlStatementLogger instance.
@@ -38,8 +47,20 @@ public class SqlStatementLogger {
 	 * @param format Should we format the statements prior to logging
 	 */
 	public SqlStatementLogger(boolean logToStdout, boolean format) {
+		this( logToStdout, format, 0 );
+	}
+
+	/**
+	 * Constructs a new SqlStatementLogger instance.
+	 *
+	 * @param logToStdout Should we log to STDOUT in addition to our internal logger.
+	 * @param format Should we format the statements prior to logging
+	 * @param logSlowQuery Should we logs query which executed slower than specified milliseconds. 0 - disabled.
+	 */
+	public SqlStatementLogger(boolean logToStdout, boolean format, long logSlowQuery) {
 		this.logToStdout = logToStdout;
 		this.format = format;
+		this.logSlowQuery = logSlowQuery;
 	}
 
 	/**
@@ -68,6 +89,10 @@ public class SqlStatementLogger {
 		this.format = format;
 	}
 
+	public long getLogSlowQuery() {
+		return logSlowQuery;
+	}
+
 	/**
 	 * Log a SQL statement string.
 	 *
@@ -94,6 +119,31 @@ public class SqlStatementLogger {
 		LOG.debug( statement );
 		if ( logToStdout ) {
 			System.out.println( "Hibernate: " + statement );
+		}
+	}
+
+	/**
+	 * Log a slow SQL query
+	 *
+	 * @param sql Supplier for the SQL query.
+	 * @param startTime Start time in milliseconds.
+	 */
+	@AllowSysOut
+	public void logSlowQuery(Supplier<String> sql, long startTimeNanos) {
+		if ( logSlowQuery < 1 ) {
+			return;
+		}
+		if ( startTimeNanos <= 0 ) {
+			throw new IllegalArgumentException( "startTimeNanos [" + startTimeNanos + "] should be greater than 0!" );
+		}
+		long queryExecutionMillis = TimeUnit.NANOSECONDS.toMillis( System.nanoTime() - startTimeNanos );
+
+		if ( queryExecutionMillis > logSlowQuery ) {
+			String logData = "SlowQuery: " + queryExecutionMillis + " milliseconds. SQL: '" + sql.get() + "'";
+			LOG_SLOW.info( logData );
+			if ( logToStdout ) {
+				System.out.println( logData );
+			}
 		}
 	}
 }
